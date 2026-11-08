@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>생태와 환경 - 해양 오염 대시보드</title>
+  <!-- Chart.js 라이브러리 추가 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-dark: #0369a1;
+      --bg: #f0f9ff;
+      --card-bg: #ffffff;
+      --text: #1e293b;
+      --text-light: #64748b;
+      --accent: #06b6d4;
+      --border: #cbd5e1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, Roboto, "Segoe UI", sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.6;
+    }
+
+    /* --- 1. 초기 로딩 화면 --- */
+    #loading-screen {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(135deg, #075985, #0284c7);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      transition: opacity 0.6s ease, visibility 0.6s ease;
+    }
+
+    #loading-screen.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .splash-title {
+      font-size: 3rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      margin-bottom: 2rem;
+      text-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+
+    .progress-container {
+      width: 320px;
+      height: 14px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    .progress-bar {
+      width: 0%;
+      height: 100%;
+      background: #38bdf8;
+      box-shadow: 0 0 14px #38bdf8;
+      transition: width 0.1s linear;
+    }
+
+    .loading-text {
+      margin-top: 1.2rem;
+      font-size: 1rem;
+      opacity: 0.9;
+      font-weight: 500;
+    }
+
+    /* --- 2. 헤더 및 내비게이션 --- */
+    header {
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo-group h1 {
+      font-size: 1.5rem;
+      color: var(--primary-dark);
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .tab-menu {
+      display: flex;
+      gap: 0.4rem;
+      background-color: #f1f5f9;
+      padding: 0.35rem;
+      border-radius: 12px;
+    }
+
+    .tab-btn {
+      border: none;
+      background: none;
+      padding: 0.65rem 1.2rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-light);
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      background-color: white;
+      color: var(--primary);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    /* --- 3. 메인 콘텐츠 --- */
+    main {
+      max-width: 1280px;
+      width: 100%;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+      flex: 1;
+    }
+
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.4s ease-in-out forwards;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 대시보드 그리드 구조 */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 1.8rem;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin-bottom: 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* 수질 및 쓰레기 데이터 표 */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.5rem;
+    }
+
+    .data-table th, .data-table td {
+      padding: 0.8rem 0.6rem;
+      text-align: left;
+      font-size: 0.9rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .data-table th {
+      background-color: #f8fafc;
+      color: var(--text-light);
+      font-weight: 700;
+    }
+
+    .badge-alert {
+      background-color: #fef2f2;
+      color: #ef4444;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+
+    .badge-warn {
+      background-color: #fffbe8;
+      color: #d97706;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+
+    /* 뉴스 항목 */
+    .news-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .news-item {
+      padding-bottom: 0.9rem;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .news-item:last-child {
+      border-bottom: none;
+    }
+
+    .news-tag {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--primary);
+      background: #e0f2fe;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      margin-right: 0.4rem;
+    }
+
+    .news-date {
+      font-size: 0.8rem;
+      color: var(--text-light);
+    }
+
+    .news-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      text-decoration: none;
+      display: block;
+      margin-top: 0.3rem;
+    }
+
+    .news-desc {
+      font-size: 0.85rem;
+      color: var(--text-light);
+      margin-top: 0.2rem;
+    }
+
+    /* 실시간 상식 카드 */
+    .tip-box {
+      background: linear-gradient(135deg, #e0f2fe, #bae6fd);
+      border-radius: 12px;
+      padding: 1.2rem;
+      margin-top: 1.5rem;
+      color: #0369a1;
+    }
+
+    .tip-title {
+      font-weight: 800;
+      font-size: 0.95rem;
+      margin-bottom: 0.3rem;
+    }
+
+    /* 해양 동물 말풍선 */
+    .animal-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .animal-card {
+      background: white;
+      border-radius: 16px;
+      padding: 1.6rem;
+      border: 1px solid var(--border);
+      text-align: center;
+      transition: transform 0.2s ease;
+    }
+
+    .animal-card:hover {
+      transform: translateY(-4px);
+    }
+
+    .animal-avatar {
+      font-size: 4rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .animal-name {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+    }
+
+    .animal-status {
+      font-size: 0.8rem;
+      color: #ef4444;
+      font-weight: 700;
+      margin-bottom: 0.8rem;
+    }
+
+    .speech-bubble {
+      position: relative;
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 14px;
+      padding: 1.1rem;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      color: #0369a1;
+      text-align: left;
+    }
+
+    .speech-bubble::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      border: 10px solid transparent;
+      border-bottom-color: #f0f9ff;
+      border-top: 0;
+      margin-left: -10px;
+      margin-top: -10px;
+    }
+
+    /* 퀴즈 영역 */
+    .quiz-card {
+      background: white;
+      border-radius: 16px;
+      padding: 2rem;
+      border: 1px solid var(--border);
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .quiz-question {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 1.2rem;
+      color: var(--text);
+    }
+
+    .quiz-option {
+      width: 100%;
+      padding: 1rem 1.2rem;
+      margin-top: 0.6rem;
+      border: 1.5px solid var(--border);
+      background: white;
+      border-radius: 10px;
+      text-align: left;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .quiz-option:hover {
+      border-color: var(--primary);
+      background-color: #f0f9ff;
+    }
+
+    .quiz-result {
+      margin-top: 1.2rem;
+      font-weight: 700;
+      padding: 1rem;
+      border-radius: 10px;
+      text-align: center;
+      display: none;
+      line-height: 1.5;
+    }
+
+    /* 실천 체크리스트 (아코디언) */
+    .accordion-item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      background: white;
+      overflow: hidden;
+    }
+
+    .accordion-header {
+      width: 100%;
+      padding: 1.2rem 1.5rem;
+      background: white;
+      border: none;
+      text-align: left;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .accordion-header:hover {
+      background-color: #f8fafc;
+    }
+
+    .accordion-content {
+      padding: 0 1.5rem 1.2rem 1.5rem;
+      display: none;
+      border-top: 1px dashed var(--border);
+      background-color: #fafafa;
+    }
+
+    .accordion-item.open .accordion-content {
+      display: block;
+    }
+
+    .checklist-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+      margin-top: 0.9rem;
+    }
+
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    .check-item input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .progress-status-box {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.2rem;
+      text-align: center;
+      margin-top: 1.5rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+      font-size: 1.1rem;
+    }
+
+    footer {
+      text-align: center;
+      padding: 1.8rem;
+      color: var(--text-light);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--border);
+      background: white;
+      margin-top: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. 초기 스플래시 로딩 화면 -->
+  <div id="loading-screen">
+    <div class="splash-title">🌊 생태와 환경</div>
+    <div class="progress-container">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <div class="loading-text" id="loading-text">전 세계 해양 환경 빅데이터를 불러오는 중...</div>
+  </div>
+
+  <!-- 2. 메인 헤더 및 탭 내비게이션 -->
+  <header>
+    <div class="logo-group">
+      <h1>🌊 생태와 환경 : 해양 오염 대시보드</h1>
+    </div>
+    <nav class="tab-menu">
+      <button class="tab-btn active" onclick="openTab(event, 'tab-dashboard')">통계 & 이슈 대시보드</button>
+      <button class="tab-btn" onclick="openTab(event, 'tab-animals')">해양 생물 피해 현황</button>
+      <button class="tab-btn" onclick="openTab(event, 'tab-quiz')">환경 지식 퀴즈</button>
+      <button class="tab-btn" onclick="openTab(event, 'tab-action')">해양 보전 실천 수칙</button>
+    </nav>
+  </header>
+
+  <!-- 3. 메인 콘텐츠 -->
+  <main>
+    <!-- TAB 1: 종합 대시보드 (그래프, 표, 뉴스, 실시간 상식) -->
+    <section id="tab-dashboard" class="tab-content active">
+      <div class="dashboard-grid">
+        
+        <!-- 시각화 차트 1: 미세플라스틱 축적 추이 -->
+        <div class="card">
+          <div class="card-title">
+            <span>📈 전 세계 해양 플라스틱 및 pH 통계</span>
+            <span style="font-size:0.8rem; font-weight:normal; color:var(--text-light);">출처: UNEP / NOAA</span>
+          </div>
+          <div style="position: relative; height:240px; width:100%;">
+            <canvas id="chartOceanPlastic"></canvas>
+          </div>
+        </div>
+
+        <!-- 시각화 차트 2: 해양 쓰레기 성분 비율 -->
+        <div class="card">
+          <div class="card-title">
+            <span>🧩 해양 유입 쓰레기 성분 비율</span>
+            <span style="font-size:0.8rem; font-weight:normal; color:var(--text-light);">2026 실태조사</span>
+          </div>
+          <div style="position: relative; height:240px; width:100%;">
+            <canvas id="chartTrashComposition"></canvas>
+          </div>
+        </div>
+
+        <!-- 상세 통계 표 -->
+        <div class="card">
+          <div class="card-title">📊 연도별 해양 오염 지표 현황</div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>연도</th>
+                <th>플라스틱 유입량</th>
+                <th>해수 평균 pH</th>
+                <th>위험도 단계</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>2020년</td>
+                <td>약 1,100만 톤</td>
+                <td>8.06 pH</td>
+                <td><span class="badge-warn">주의단계</span></td>
+              </tr>
+              <tr>
+                <td>2022년</td>
+                <td>약 1,250만 톤</td>
+                <td>8.04 pH</td>
+                <td><span class="badge-warn">경계단계</span></td>
+              </tr>
+              <tr>
+                <td>2024년</td>
+                <td>약 1,400만 톤</td>
+                <td>8.02 pH</td>
+                <td><span class="badge-alert">심각단계</span></td>
+              </tr>
+              <tr>
+                <td>2026년 (현재)</td>
+                <td>약 1,550만 톤</td>
+                <td>8.00 pH</td>
+                <td><span class="badge-alert">위험단계</span></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="tip-box">
+            <div class="tip-title">💡 알고 계셨나요? (해양 산성화)</div>
+            해수 pH가 0.1 감소하는 것은 바닷물의 산성도가 약 30% 증가함을 의미하며, 이는 조개류나 산호초의 껍데기를 녹여 생태계를 파괴합니다.
+          </div>
+        </div>
+
+        <!-- 최근 해양 뉴스 모음 -->
+        <div class="card">
+          <div class="card-title">📰 최근 해양 환경 주요 뉴스</div>
+          <div class="news-list">
+            <div class="news-item">
+              <div>
+                <span class="news-tag">국제</span>
+                <span class="news-date">2026.02.15</span>
+              </div>
+              <a href="#" class="news-title">태평양 거대 쓰레기 지대(GPGP), 예상보다 3배 빠르게 확산</a>
+              <p class="news-desc">한반도 면적의 8배에 달하는 플라스틱 쓰레기 지대가 해류를 따라 지속 확장 중입니다.</p>
+            </div>
+            <div class="news-item">
+              <div>
+                <span class="news-tag">과학</span>
+                <span class="news-date">2026.01.28</span>
+              </div>
+              <a href="#" class="news-title">심해 10,000m 단족류 체내에서도 미세플라스틱 검출</a>
+              <p class="news-desc">인간의 발길이 닿지 않는 마리아나 해구 생물들조차 미세플라스틱 오염에 노출되었습니다.</p>
+            </div>
+            <div class="news-item">
+              <div>
+                <span class="news-tag">정책</span>
+                <span class="news-date">2025.11.04</span>
+              </div>
+              <a href="#" class="news-title">유엔 해양협약 체결... 일회용 플라스틱 규제 강황</a>
+              <p class="news-desc">전 세계 190여 개국이 해양 유출 플라스틱 감소를 위한 법적 구속력 있는 협약 체결에 합의했습니다.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB 2: 피해 해양 동물 (말풍선 카드) -->
+    <section id="tab-animals" class="tab-content">
+      <div style="text-align:center; margin-bottom: 2rem;">
+        <h2 style="font-size: 1.6rem; color: var(--primary-dark);">🐢 플라스틱 오염으로 고통받는 해양 동물들의 증언</h2>
+        <p style="color: var(--text-light); font-size: 0.95rem; margin-top: 0.4rem;">무심코 버린 쓰레기가 바다 생물들의 생명을 위협하고 있습니다.</p>
+      </div>
+
+      <div class="animal-gallery">
+        <div class="animal-card">
+          <div class="animal-avatar">🐢</div>
+          <div class="animal-name">붉은바다거북</div>
+          <div class="animal-status">위기등급: 멸종위기(EN)</div>
+          <div class="speech-bubble">
+            "바닷속에 떠다니는 투명한 비닐봉지를 제가 가장 좋아하는 먹이인 해파리로 착각해 삼켰다가 장이 막혀 죽을 고비를 넘겼어요..."
+          </div>
+        </div>
+
+        <div class="animal-card">
+          <div class="animal-avatar">🐋</div>
+          <div class="animal-name">대왕고래</div>
+          <div class="speech-bubble">
+            "하루에 수 톤의 크릴새우를 삼킬 때 엄청난 양의 미세플라스틱도 함께 체내에 쌓여 호르몬 이상을 겪고 있습니다."
+          </div>
+        </div>
+
+        <div class="animal-card">
+          <div class="animal-avatar">🦭</div>
+          <div class="animal-name">점박이물범</div>
+          <div class="animal-status">위기등급: 취약(VU)</div>
+          <div class="speech-bubble">"버려진 폐어망과 낚싯줄이 몸에 엉켜 헤엄을 칠 수 없고, 몸에 상처가 깊게 파여 괴사하고 있어요."</div>
+        </div>
+
+        <div class="animal-card">
+          <div class="animal-avatar">🐦</div>
+          <div class="animal-name">알바트로스</div>
+          <div class="speech-bubble">
+            "해수면에 떠 있는 작은 플라스틱 조각과 라이터를 먹이로 착각하고 둥지에 있는 새끼들에게 가져다주고 말았어요..."
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: 해양 환경 퀴즈 (확장형 3문항) -->
+    <section id="tab-quiz" class="tab-content">
+      <div class="quiz-card">
+        <div class="card-title">💡 고등학생을 위한 해양 환경 상식 퀴즈</div>
+        
+        <!-- Q1 -->
+        <div class="quiz-item" id="q1-box" style="margin-bottom: 2rem;">
+          <div class="quiz-question">Q1. 플라스틱 병 하나가 바다에서 완전히 분해되는 데 걸리는 시간은 약 얼마일까요?</div>
+          <button class="quiz-option" onclick="checkQuiz(1, false, this)">1) 약 5년</button>
+          <button class="quiz-option" onclick="checkQuiz(1, false, this)">2) 약 50년</button>
+          <button class="quiz-option" onclick="checkQuiz(1, true, this)">3) 약 450년 이상</button>
+          <button class="quiz-option" onclick="checkQuiz(1, false, this)">4) 약 100년</button>
+          <div id="q1-result" class="quiz-result"></div>
+        </div>
+
+        <!-- Q2 -->
+        <div class="quiz-item" id="q2-box" style="margin-bottom: 2rem; border-top: 1px solid var(--border); padding-top: 1.5rem;">
+          <div class="quiz-question">Q2. 미세플라스틱(Microplastics)의 일반적인 정의 크기는 얼마 이하일까요?</div>
+          <button class="quiz-option" onclick="checkQuiz(2, false, this)">1) 1 cm 이하</button>
+          <button class="quiz-option" onclick="checkQuiz(2, true, this)">2) 5 mm 이하</button>
+          <button class="quiz-option" onclick="checkQuiz(2, false, this)">3) 1 mm 이하</button>
+          <button class="quiz-option" onclick="checkQuiz(2, false, this)">4) 10 nm 이하</button>
+          <div id="q2-result" class="quiz-result"></div>
+        </div>
+
+        <!-- Q3 -->
+        <div class="quiz-item" id="q3-box" style="border-top: 1px solid var(--border); padding-top: 1.5rem;">
+          <div class="quiz-question">Q3. 해양 산성화(Ocean Acidification)를 일으키는 주요 원인 물질은 무엇일까요?</div>
+          <button class="quiz-option" onclick="checkQuiz(3, false, this)">1) 메탄가스 ($CH_4$)</button>
+          <button class="quiz-option" onclick="checkQuiz(3, true, this)">2) 이산화탄소 ($CO_2$)</button>
+          <button class="quiz-option" onclick="checkQuiz(3, false, this)">3) 아질산염 ($NO_2$)</button>
+          <button class="quiz-option" onclick="checkQuiz(3, false, this)">4) 프레온가스 (CFCs)</button>
+          <div id="q3-result" class="quiz-result"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB 4: 개인이 실천할 수 있는 해결방안 체크리스트 (아코디언) -->
+    <section id="tab-action" class="tab-content">
+      <div style="text-align:center; margin-bottom: 2rem;">
+        <h2 style="font-size: 1.6rem; color: var(--primary-dark);">🌱 내가 실천할 수 있는 해양 오염 방지 행동 수칙</h2>
+        <p style="color: var(--text-light); font-size: 0.95rem; margin-top: 0.4rem;">작은 실천 하나가 깨끗한 바다를 만듭니다. 오늘부터 체크해 보세요!</p>
+      </div>
+
+      <!-- 아코디언 1 -->
+      <div class="accordion-item open">
+        <button class="accordion-header" onclick="toggleAccordion(this)">
+          <span>🛍️ 1. 일상생활 1회용품 소비 감축</span>
+          <span style="font-size:0.8rem;">▼</span>
+        </button>
+        <div class="accordion-content">
+          <div class="checklist-group">
+            <label class="check-item">
+              <input type="checkbox" onchange="updateChecklistProgress()"> 텀블러 및 다회용 컵을 항상 휴대하여 음료 구매하기
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateChecklistProgress()"> 장볼 때 비닐봉지 대신 장바구니/에코백 사용하기
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateChecklistProgress()"> 배달 음식 주문 시 1회용 수저 및 빨대 거절하기
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 아코디언 2 -->
+      <div class="accordion-item">
+        <button class="accordion-header" onclick="toggleAccordion(this)">
+          <span>♻️ 2. 올바른 쓰레기 분리배출 및 재활용</span>
+          <span style="font-size:0.8rem;">▼</span>
+        </button>
+        <div class="accordion-content">
+          <div class="checklist-group">
+            <label class="check-item">
+              <input type="checkbox" onchange="updateChecklistProgress()"> 투명 페트병 배출 시 비닐 라벨을 제거하고 찌그러뜨려 배출하기
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateChecklistProgress()"> 이물질이 묻은 플라스틱 용기는 깨끗이 헹군 뒤 배출하기
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateChecklistProgress()"> 마스크 끈을 잘라 배출하여 야생 동물의 엉킴 사고 예방하기
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 아코디언 3 -->
+      <div class="accordion-item">
+        <button class="accordion-header" onclick="toggleAccordion(this)">
+          <span>🧼 3. 친환경 제품 선택 및 생활습관 개선</span>
+          <span style="font-size:0.8rem;">▼</span>
+        </button>
+        <div class="accordion-content">
+          <div class="checklist-group">
+            <label class="check-item">
+              <input type="checkbox" onchange="updateChecklistProgress()"> 미세플라스틱이 들어있지 않은 천연 수세미 및 친환경 세제 사용하기
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateChecklistProgress()"> 해양 산호초 파괴 성분(옥시벤존 등)이 없는 리프 프렌들리(Reef-Friendly) 자외선 차단제 사용
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateChecklistProgress()"> 플로깅(Plogging) 등 주변 쓰레기 줍기 봉사활동 참여하기
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="progress-status-box">
+        🌊 나의 해양보전 실천 달성도: <span id="check-count" style="color:var(--primary); font-size:1.4rem;">0</span> / 8 개 완료
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    &copy; 2026 생태와 환경 수업 과제용 대시보드 | GitHub Pages 배포 완료
+  </footer>
+
+  <script>
+    // 1. 로딩 애니메이션
+    window.addEventListener('DOMContentLoaded', () => {
+      const progressBar = document.getElementById('progress-bar');
+      const loadingScreen = document.getElementById('loading-screen');
+      let progress = 0;
+
+      const interval = setInterval(() => {
+        progress += 4;
+        progressBar.style.width = progress + '%';
+        if (progress >= 100) {
+          clearInterval(interval);
+          setTimeout(() => {
+            loadingScreen.classList.add('hidden');
+            renderCharts(); // 로딩 후 차트 렌더링
+          }, 300);
+        }
+      }, 50);
+    });
+
+    // 2. 탭 내비게이션
+    function openTab(evt, tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+      document.getElementById(tabId).classList.add('active');
+      evt.currentTarget.classList.add('active');
+    }
+
+    // 3. 차트 렌더링 함수 (Chart.js)
+    function renderCharts() {
+      // 차트 1: 플라스틱 유입량 추이
+      const ctx1 = document.getElementById('chartOceanPlastic').getContext('2d');
+      new Chart(ctx1, {
+        type: 'line',
+        data: {
+          labels: ['2018년', '2020년', '2022년', '2024년', '2026년(예상)'],
+          datasets: [{
+            label: '해양 유입 플라스틱 (만 톤)',
+            data: [950, 1100, 1250, 1400, 1550],
+            borderColor: '#0284c7',
+            backgroundColor: 'rgba(2, 132, 199, 0.1)',
+            fill: true,
+            tension: 0.3,
+            borderWidth: 3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } }
+        }
+      });
+
+      // 차트 2: 쓰레기 성분 비율
+      const ctx2 = document.getElementById('chartTrashComposition').getContext('2d');
+      new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+          labels: ['일회용 용기/비닐', '폐어망/어구', '스티로폼', '담배꽁초', '기타'],
+          datasets: [{
+            data: [48, 27, 12, 8, 5],
+            backgroundColor: ['#0284c7', '#06b6d4', '#38bdf8', '#94a3b8', '#cbd5e1']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'right' }
+          }
+        }
+      });
+    }
+
+    // 4. 아코디언 메뉴
+    function toggleAccordion(btn) {
+      btn.parentElement.classList.toggle('open');
+    }
+
+    // 5. 퀴즈 검사
+    function checkQuiz(qNum, isCorrect, btnObj) {
+      const parentBox = btnObj.parentElement;
+      const options = parentBox.querySelectorAll('.quiz-option');
+      const resultDiv = document.getElementById(`q${qNum}-result`);
+
+      options.forEach(b => b.style.pointerEvents = 'none');
+
+      resultDiv.style.display = 'block';
+      if (isCorrect) {
+        btnObj.style.background = '#dcfce7';
+        btnObj.style.borderColor = '#22c55e';
+        resultDiv.style.background = '#dcfce7';
+        resultDiv.style.color = '#15803d';
+        resultDiv.textContent = '🎉 정답입니다!';
+      } else {
+        btnObj.style.background = '#fee2e2';
+        btnObj.style.borderColor = '#ef4444';
+        resultDiv.style.background = '#fee2e2';
+        resultDiv.style.color = '#b91c1c';
+        resultDiv.textContent = '❌ 아쉽게도 오답입니다. 다시 한번 확인해 보세요!';
+      }
+    }
+
+    // 6. 실천 체크리스트 카운트
+    function updateChecklistProgress() {
+      const checkedCount = document.querySelectorAll('.check-item input[type="checkbox"]:checked').length;
+      document.getElementById('check-count').textContent = checkedCount;
+    }
+  </script>
+</body>
+</html>
